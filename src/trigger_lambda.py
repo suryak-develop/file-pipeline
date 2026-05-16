@@ -1,3 +1,4 @@
+# Serverless File Processing Pipeline - AWS
 import json, boto3, os
 
 sqs = boto3.client('sqs')
