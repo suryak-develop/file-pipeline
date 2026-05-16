@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  Email:
+    Type: String
+    Description: Your email for SNS alerts
+
+Resources:
+
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: BucketPermission
+    Properties:
+      BucketName: !Sub 'file-pipeline-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt TriggerLambda.Arn
+
+  BucketPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref TriggerLambda
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+
+  FileMetadataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: FileMetadata
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: fileId, AttributeType: S}
+      KeySchema:
+        - {AttributeName: fileId, KeyType: HASH}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref Email
+
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: lambda.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: PipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - dynamodb:PutItem
+                  - sns:Publish
+                Resource: '*'
+
+  TriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: FilePipelineTrigger
+      Runtime: python3.12
+      Handler: trigger_lambda.handler
+      Role: !GetAtt LambdaRole.Arn
+      Code: {ZipFile: 'def handler(e,c): pass'}
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref ProcessingQueue
+
+  ProcessorLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: FilePipelineProcessor
+      Runtime: python3.12
+      Handler: processor_lambda.handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 60
+      Code: {ZipFile: 'def handler(e,c): pass'}
+      Environment:
+        Variables:
+          DYNAMO_TABLE: !Ref FileMetadataTable
+          SNS_TOPIC_ARN: !Ref NotificationTopic
+
+  ProcessorTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt ProcessingQueue.Arn
+      FunctionName: !Ref ProcessorLambda
+      BatchSize: 1

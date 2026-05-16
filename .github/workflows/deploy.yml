@@ -1,0 +1,35 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name file-pipeline \
+            --template-file template.yaml \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides Email=your@email.com
+
+      - name: Deploy trigger Lambda
+        run: |
+          zip trigger.zip src/trigger_lambda.py
+          aws lambda update-function-code --function-name FilePipelineTrigger --zip-file fileb://trigger.zip
+
+      - name: Deploy processor Lambda
+        run: |
+          zip processor.zip src/processor_lambda.py
+          aws lambda update-function-code --function-name FilePipelineProcessor --zip-file fileb://processor.zip
