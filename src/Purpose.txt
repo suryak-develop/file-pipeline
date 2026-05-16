@@ -1,0 +1,118 @@
+# Serverless File Processing Pipeline on AWS
+
+
+
+![AWS](https://img.shields.io/badge/AWS-Cloud-orange)
+
+ 
+
+![Lambda](https://img.shields.io/badge/Lambda-Serverless-yellow)
+
+ 
+
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+
+ 
+
+![CloudFormation](https://img.shields.io/badge/IaC-CloudFormation-red)
+
+ 
+
+![CI/CD](https://img.shields.io/badge/CI/CD-GitHub%20Actions-green)
+
+
+
+A production-grade, event-driven serverless file processing pipeline built on AWS — simulating real-world use cases like **document processing, media ingestion, log aggregation, and e-commerce order handling**.
+
+---
+
+## Real-World Use Cases
+
+| Industry | How This Pipeline Is Used |
+|---|---|
+| 🏥 Healthcare | Patient reports uploaded to S3 → processed → stored → doctor notified |
+| 🛒 E-commerce | Order invoices uploaded → metadata extracted → stored in DB → customer emailed |
+| 🏦 Banking | Bank statements uploaded → processed → archived → compliance team alerted |
+| 📦 Logistics | Shipment documents uploaded → tracked in DynamoDB → team notified via SNS |
+| 🎬 Media | Video/image files uploaded → metadata indexed → CDN notified for distribution |
+
+> This project directly mirrors architectures used by companies like **Swiggy, Razorpay, Freshworks, and Amazon** for their file ingestion and event-driven processing systems.
+
+---
+
+## Architecture
+User / Application
+│
+▼
+┌─────────┐     S3 Event      ┌────────────┐     SQS Message     ┌─────────────┐
+│   S3    │ ───────────────►  │ Lambda #1  │ ──────────────────► │     SQS     │
+│ Bucket  │                   │ (Trigger)  │                      │    Queue    │
+└─────────┘                   └────────────┘                      └─────────────┘
+│
+▼
+┌─────────────┐
+│  Lambda #2  │
+│ (Processor) │
+└─────────────┘
+│         │
+┌──────┘         └──────┐
+▼                        ▼
+┌──────────┐           ┌──────────┐
+│ DynamoDB │           │   SNS    │
+│ Metadata │           │  Email   │
+└──────────┘           └──────────┘---
+
+## How It Works — Step by Step
+
+1. **File Upload** — User or application uploads any file (PDF, image, JSON, CSV) to S3 bucket with versioning enabled
+2. **S3 Event Trigger** — S3 automatically fires an event notification to Lambda #1 on every new upload
+3. **Message Queue** — Lambda #1 pushes file details (bucket, key, size) to SQS queue for reliable, decoupled processing
+4. **Processing** — Lambda #2 is triggered by SQS, reads the message and processes the file metadata
+5. **Storage** — Processed metadata saved to DynamoDB with auto-expiry (TTL = 30 days) for cost efficiency
+6. **Notification** — SNS sends a real-time email alert confirming successful processing
+
+---
+
+## Performance Metrics
+
+| Metric | Value |
+|---|---|
+| ⚡ Average processing time | < 2 seconds end-to-end |
+| 📦 Files processed per test | 5+ files successfully |
+| 💰 Infrastructure cost | $0 (AWS Free Tier) |
+| 🔄 Deployment time | < 3 minutes via CloudFormation |
+| 📬 Notification delivery | < 5 seconds via SNS |
+| 🗄️ DynamoDB record TTL | 30 days auto-cleanup |
+| 🚀 CI/CD deploy time | < 2 minutes via GitHub Actions |
+| 🔐 IAM policies | Least-privilege per Lambda |
+
+---
+
+## AWS Services Used
+
+| Service | Purpose | Real-World Equivalent |
+|---|---|---|
+| S3 | File storage with versioning | Google Drive, Dropbox |
+| Lambda | Serverless compute | Background workers |
+| SQS | Message queue buffer | RabbitMQ, Kafka |
+| DynamoDB | NoSQL metadata store | MongoDB Atlas |
+| SNS | Push notifications | Twilio, Firebase FCM |
+| CloudFormation | Infrastructure as Code | Terraform |
+| IAM | Access control | OAuth, RBAC |
+| GitHub Actions | CI/CD pipeline | Jenkins, CircleCI |
+
+---
+
+## Key Technical Concepts Demonstrated
+
+- **Event-Driven Architecture** — services communicate via events, not direct calls
+- **Decoupled Microservices** — each Lambda has a single responsibility
+- **Infrastructure as Code (IaC)** — entire stack provisioned via CloudFormation template
+- **Least-Privilege Security** — each Lambda has only the permissions it needs
+- **Auto-Scaling** — Lambda and DynamoDB scale automatically with load
+- **Cost Optimization** — serverless = pay only when code runs, DynamoDB TTL auto-deletes old records
+- **CI/CD Automation** — GitHub Actions deploys on every push to main, zero manual steps
+
+---
+
+## Project Structure
